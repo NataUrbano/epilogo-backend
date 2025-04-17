@@ -3,14 +3,10 @@ package com.epilogo.epilogo.model;
 import com.epilogo.epilogo.audit.AuditUserListener;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 
 import java.time.LocalDateTime;
@@ -18,12 +14,11 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
-@EntityListeners(AuditUserListener.class)
 @Table(name = "users")
+@ToString
 public class User  {
 
     @Id
@@ -31,14 +26,11 @@ public class User  {
     @Column(name = "user_id")
     private Long userId;
 
-    @Column(name = "user_name", nullable = false, length = 100)
-    @NotNull
-    @Size(min = 3, max = 50)
-    private String userName;
+    @Column( name="name", nullable = false, length = 150)
+    @Size(min = 3, max = 150)
+    private String name;
 
     @Column(name = "email", nullable = false, unique = true, length = 100)
-    @NotNull
-    @Email
     private String email;
 
     @Column(name = "password", nullable = false)
@@ -46,7 +38,6 @@ public class User  {
 
     @Column(name = "register_date")
     @CreationTimestamp
-    @NotNull
     private LocalDateTime registerDate;
 
     @ManyToMany(fetch = FetchType.EAGER)
@@ -57,15 +48,4 @@ public class User  {
     )
     private Set<Role> roles = new HashSet<>();
 
-    @Override
-    public String toString() {
-        return "User{" +
-                "userId=" + userId +
-                ", userName='" + userName + '\'' +
-                ", email='" + email + '\'' +
-                ", password='" + password + '\'' +
-                ", registerDate=" + registerDate +
-                ", roles=" + roles +
-                '}';
-    }
 }

@@ -51,13 +51,4 @@ public class Reservation {
         PENDING, ACTIVE, COMPLETED, CANCELLED
     }
 
-    // ANOTACIONES DE SPRING DATA
-
-    @Column(name = "created_date")
-    @CreatedDate
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_date")
-    @LastModifiedDate
-    private LocalDateTime updatedAt;
 }

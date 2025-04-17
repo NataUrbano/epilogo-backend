@@ -1,64 +1,64 @@
 package com.epilogo.epilogo.controller;
 
 import com.epilogo.epilogo.dto.UserDTO;
-import com.epilogo.epilogo.model.User;
+import com.epilogo.epilogo.exceptions.ForbiddenException;
+import com.epilogo.epilogo.exceptions.InvalidDataException;
+import com.epilogo.epilogo.exceptions.UnauthorizedException;
+import com.epilogo.epilogo.exceptions.UserNotFoundException;
 import com.epilogo.epilogo.service.UserService;
-import jakarta.validation.Valid;
-import org.modelmapper.ModelMapper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users")
-@CrossOrigin(origins = "http://localhost:4200")
-@Validated
 public class UserController {
 
     private final UserService userService;
-    private final ModelMapper modelMapper;
 
-    @Autowired
-    public UserController(UserService userService, ModelMapper modelMapper) {
+    public UserController(UserService userService) {
         this.userService = userService;
-        this.modelMapper = modelMapper;
     }
-
 
     @GetMapping
     public ResponseEntity<List<UserDTO>> findAll() {
-        List<User> users = userService.findAll();
-        if (users.isEmpty()) {
-            return ResponseEntity.noContent().build();
+        List<UserDTO> userDTOs = userService.findAllDTOs();
+        if (userDTOs.isEmpty()) {
+            throw new UserNotFoundException("No users found");
         }
-        List<UserDTO> userDTOs = users.stream()
-                .map(user -> modelMapper.map(user, UserDTO.class))
-                .collect(Collectors.toList());
         return ResponseEntity.ok(userDTOs);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<UserDTO> findByUserId(@PathVariable int userId) {
-        return userService.findByUserId(userId)
-                .map(user -> ResponseEntity.ok(modelMapper.map(user, UserDTO.class)))
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<UserDTO> findByUserId(@PathVariable("id") Long userId) {
+        return userService.findDTOById(userId)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
     }
 
     @PutMapping("/actualizar")
-    public ResponseEntity<UserDTO> updateUser(@Valid @RequestBody UserDTO userDTO) {
-        User user = modelMapper.map(userDTO, User.class);
-        User updatedUser = userService.updateUser(user);
-        return ResponseEntity.ok(modelMapper.map(updatedUser, UserDTO.class));
+    public ResponseEntity<UserDTO> updateUser(@RequestBody UserDTO userDTO) {
+        if (userDTO.getUserId() == null || userDTO.getName() == null) {
+            throw new InvalidDataException("Invalid user data");
+        }
+        UserDTO updatedUserDTO = userService.updateUserDTO(userDTO);
+        return ResponseEntity.ok(updatedUserDTO);
     }
 
     @DeleteMapping("/eliminar/{id}")
-    public ResponseEntity<Void> deleteUserById(@PathVariable int userId) {
+    public ResponseEntity<Void> deleteUserById(@PathVariable("id") Long userId) {
         userService.deleteUser(userId);
         return ResponseEntity.ok().build();
     }
-}
 
+    @GetMapping("/restricted")
+    public ResponseEntity<String> restrictedEndpoint() {
+        throw new UnauthorizedException("You are not authorized to access this resource");
+    }
+
+    @GetMapping("/forbidden")
+    public ResponseEntity<String> forbiddenEndpoint() {
+        throw new ForbiddenException("Access to this resource is forbidden");
+    }
+}

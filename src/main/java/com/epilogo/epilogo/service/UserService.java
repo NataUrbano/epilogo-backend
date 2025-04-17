@@ -1,40 +1,54 @@
 package com.epilogo.epilogo.service;
 
+import com.epilogo.epilogo.dto.UserDTO;
 import com.epilogo.epilogo.model.User;
 import com.epilogo.epilogo.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
+    private final ModelMapper modelMapper;
 
-    @Autowired
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, ModelMapper modelMapper) {
         this.userRepository = userRepository;
+        this.modelMapper = modelMapper;
     }
 
-    public List<User> findAll() {
-        return userRepository.findAll();
+    public List<UserDTO> findAllDTOs() {
+        List<User> users = userRepository.findAll();
+        return users.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
-    public Optional<User> findByUserId(int userId) {
-        return userRepository.findById(userId);
+    public Optional<UserDTO> findDTOById(Long userId) {
+        return userRepository.findById(userId)
+                .map(this::convertToDTO);
     }
 
-    public User updateUser(User user) {
-        if (user.getUserId() == null) {
-            throw new IllegalArgumentException("El ID del usuario es requerido");
-        }
-        return userRepository.save(user);
+    public UserDTO updateUserDTO(UserDTO userDTO) {
+        User user = convertToEntity(userDTO);
+        User savedUser = userRepository.save(user);
+        return convertToDTO(savedUser);
     }
 
-    public void deleteUser(int userId) {
+    public void deleteUser(Long userId) {
         userRepository.deleteById(userId);
+    }
+
+    private UserDTO convertToDTO(User user) {
+        return modelMapper.map(user, UserDTO.class);
+    }
+
+    private User convertToEntity(UserDTO userDTO) {
+        return modelMapper.map(userDTO, User.class);
     }
 }
 
