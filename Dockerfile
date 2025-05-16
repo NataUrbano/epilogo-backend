@@ -1,11 +1,11 @@
 # Etapa de compilación
-FROM maven:3.9-eclipse-temurin-17 AS build
+FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
 COPY . .
-RUN mvn clean package -DskipTests
+RUN ./mvnw clean package -DskipTests
 
 # Etapa de ejecución
-FROM eclipse-temurin:17-jdk-alpine
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 ENV PORT=8080
