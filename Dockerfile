@@ -8,33 +8,11 @@ COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
 
-# Descargar dependencias Maven para aprovechar la caché de Docker
+# Descargar dependencias Maven
 RUN chmod +x ./mvnw && ./mvnw dependency:go-offline -B
 
 # Copiar código fuente
 COPY src src
-
-# Crear application-render.properties con contenido seguro
-RUN echo "# App general" > src/main/resources/application-render.properties && \
-    echo "spring.application.name=epilogo" >> src/main/resources/application-render.properties && \
-    echo "server.port=\${PORT:8080}" >> src/main/resources/application-render.properties && \
-    echo "" >> src/main/resources/application-render.properties && \
-    echo "# Database" >> src/main/resources/application-render.properties && \
-    echo "spring.datasource.url=\${JDBC_DATABASE_URL}" >> src/main/resources/application-render.properties && \
-    echo "spring.datasource.username=\${JDBC_DATABASE_USERNAME:postgres}" >> src/main/resources/application-render.properties && \
-    echo "spring.datasource.password=\${JDBC_DATABASE_PASSWORD}" >> src/main/resources/application-render.properties && \
-    echo "spring.datasource.driver-class-name=org.postgresql.Driver" >> src/main/resources/application-render.properties && \
-    echo "" >> src/main/resources/application-render.properties && \
-    echo "# JPA/Hibernate" >> src/main/resources/application-render.properties && \
-    echo "spring.jpa.hibernate.ddl-auto=update" >> src/main/resources/application-render.properties && \
-    echo "spring.jpa.show-sql=false" >> src/main/resources/application-render.properties && \
-    echo "spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect" >> src/main/resources/application-render.properties && \
-    echo "" >> src/main/resources/application-render.properties && \
-    echo "# JWT" >> src/main/resources/application-render.properties && \
-    echo "jwt.secret=\${JWT_SECRET:defaultsecretkey123456789012345678901234567890}" >> src/main/resources/application-render.properties && \
-    echo "jwt.expiration=\${JWT_EXPIRATION:86400000}" >> src/main/resources/application-render.properties && \
-    echo "jwt.refresh-expiration=\${JWT_REFRESH_EXPIRATION:604800000}" >> src/main/resources/application-render.properties && \
-    echo "jwt.issuer=epilogo" >> src/main/resources/application-render.properties
 
 # Compilar la aplicación
 RUN ./mvnw package -DskipTests
@@ -47,6 +25,10 @@ WORKDIR /app
 # Copiar el JAR compilado
 COPY --from=build /app/target/*.jar app.jar
 
+# Scripts de inicio
+COPY --from=build /app/src/main/resources/application.properties /app/application.properties
+COPY --from=build /app/src/main/resources/application-render.properties /app/application-render.properties
+
 # Variables de entorno
 ENV PORT=8080 \
     SPRING_PROFILES_ACTIVE=render
@@ -54,5 +36,5 @@ ENV PORT=8080 \
 # Puerto de la aplicación
 EXPOSE 8080
 
-# Comando para iniciar la aplicación
-CMD ["java", "-Xmx300m", "-Xms100m", "-jar", "app.jar"]
+# Comando para iniciar la aplicación con debugging habilitado
+CMD ["java", "-Xmx300m", "-Xms100m", "-Dspring.config.additional-location=file:/app/", "-jar", "app.jar"]
