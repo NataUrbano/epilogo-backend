@@ -25,10 +25,6 @@ WORKDIR /app
 # Copiar el JAR compilado
 COPY --from=build /app/target/*.jar app.jar
 
-# Scripts de inicio
-COPY --from=build /app/src/main/resources/application.properties /app/application.properties
-COPY --from=build /app/src/main/resources/application-render.properties /app/application-render.properties
-
 # Variables de entorno
 ENV PORT=8080 \
     SPRING_PROFILES_ACTIVE=render
@@ -36,5 +32,5 @@ ENV PORT=8080 \
 # Puerto de la aplicación
 EXPOSE 8080
 
-# Comando para iniciar la aplicación con debugging habilitado
-CMD ["java", "-Xmx300m", "-Xms100m", "-Dspring.config.additional-location=file:/app/", "-jar", "app.jar"]
+# Comando para iniciar la aplicación
+CMD ["java", "-Xmx300m", "-Xms100m", "-jar", "app.jar"]
