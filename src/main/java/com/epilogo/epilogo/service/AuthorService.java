@@ -17,6 +17,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -24,15 +27,14 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Tag(name = "Author Service", description = "Servicio para gestionar autores de libros")
 public class AuthorService {
 
     private final AuthorRepository authorRepository;
     private final S3Service s3Service;
     private final S3FileRepository s3FileRepository;
 
-    /**
-     * Get author by ID with all books
-     */
+    @Operation(summary = "Obtener autor por ID", description = "Obtiene un autor con todos sus libros por su ID")
     public AuthorDTO.AuthorResponse getAuthorById(Long authorId) {
         Author author = authorRepository.findByIdWithBooks(authorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Autor no encontrado con ID: " + authorId));
@@ -40,9 +42,7 @@ public class AuthorService {
         return mapToAuthorResponse(author);
     }
 
-    /**
-     * Find authors by name with pagination
-     */
+    @Operation(summary = "Buscar autores por nombre", description = "Busca autores cuyo nombre contenga el texto proporcionado, con paginación")
     public Page<AuthorDTO.AuthorSummary> findAuthorsByName(String name, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("authorName").ascending());
 
@@ -50,26 +50,20 @@ public class AuthorService {
                 .map(this::mapToAuthorSummary);
     }
 
-    /**
-     * Get all authors
-     */
+    @Operation(summary = "Obtener todos los autores", description = "Obtiene una lista resumida de todos los autores ordenados por nombre")
     public List<AuthorDTO.AuthorSummary> getAllAuthors() {
         return authorRepository.findAll(Sort.by("authorName").ascending()).stream()
                 .map(this::mapToAuthorSummary)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Create a new author
-     */
     @Transactional
+    @Operation(summary = "Crear autor", description = "Crea un nuevo autor en el sistema")
     public AuthorDTO.AuthorResponse createAuthor(AuthorDTO.AuthorCreateRequest request) {
-        // Check if author name already exists
         if (authorRepository.existsByAuthorNameIgnoreCase(request.getAuthorName())) {
             throw new IllegalStateException("Ya existe un autor con ese nombre");
         }
 
-        // Create author
         Author author = Author.builder()
                 .authorName(request.getAuthorName())
                 .biography(request.getBiography())
@@ -77,22 +71,17 @@ public class AuthorService {
                 .deathYear(request.getDeathYear())
                 .build();
 
-        // Save author
         Author savedAuthor = authorRepository.save(author);
 
         return mapToAuthorResponse(savedAuthor);
     }
 
-    /**
-     * Update an author
-     */
     @Transactional
+    @Operation(summary = "Actualizar autor", description = "Actualiza los datos de un autor existente")
     public AuthorDTO.AuthorResponse updateAuthor(Long authorId, AuthorDTO.AuthorUpdateRequest request) {
-        // Get author
         Author author = authorRepository.findById(authorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Autor no encontrado con ID: " + authorId));
 
-        // Check if new name exists only if name is changing
         if (request.getAuthorName() != null && !request.getAuthorName().equals(author.getAuthorName())) {
             if (authorRepository.existsByAuthorNameIgnoreCase(request.getAuthorName())) {
                 throw new IllegalStateException("Ya existe un autor con ese nombre");
@@ -100,7 +89,6 @@ public class AuthorService {
             author.setAuthorName(request.getAuthorName());
         }
 
-        // Update fields if provided
         if (request.getBiography() != null) {
             author.setBiography(request.getBiography());
         }
@@ -113,61 +101,45 @@ public class AuthorService {
             author.setDeathYear(request.getDeathYear());
         }
 
-        // Save updated author
         Author updatedAuthor = authorRepository.save(author);
 
         return mapToAuthorResponse(updatedAuthor);
     }
 
-    /**
-     * Delete an author
-     */
     @Transactional
+    @Operation(summary = "Eliminar autor", description = "Elimina un autor si no tiene libros asociados")
     public void deleteAuthor(Long authorId) {
-        // Check if author exists
         Author author = authorRepository.findByIdWithBooks(authorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Autor no encontrado con ID: " + authorId));
 
-        // Check if author has books
         if (!author.getBooks().isEmpty()) {
             throw new IllegalStateException("No se puede eliminar el autor porque tiene libros asociados");
         }
 
-        // Delete author
         authorRepository.deleteById(authorId);
     }
 
-    /**
-     * Upload author image
-     */
     @Transactional
+    @Operation(summary = "Subir imagen de autor", description = "Sube una imagen para representar al autor")
     public AuthorDTO.AuthorResponse uploadAuthorImage(Long authorId, MultipartFile file) {
-        // Get author
         Author author = authorRepository.findById(authorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Autor no encontrado con ID: " + authorId));
 
-        // Upload file to S3
         S3File s3File = s3Service.uploadFile(file, S3File.EntityType.AUTHOR, authorId);
 
-        // Update author with image URL
         author.setImageUrl(s3File.getS3Url());
         Author updatedAuthor = authorRepository.save(author);
 
         return mapToAuthorResponse(updatedAuthor);
     }
 
-    /**
-     * Get most popular authors
-     */
+    @Operation(summary = "Obtener autores más populares", description = "Obtiene los autores más populares según las reservas recientes")
     public List<AuthorDTO.AuthorSummary> getMostPopularAuthors(int limit) {
         return authorRepository.findMostPopularAuthors(limit).stream()
                 .map(this::mapToAuthorSummary)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Helper method to map Author entity to AuthorResponse DTO
-     */
     private AuthorDTO.AuthorResponse mapToAuthorResponse(Author author) {
         List<Book> books = author.getBooks() != null ? author.getBooks() : Collections.emptyList();
 
@@ -196,10 +168,6 @@ public class AuthorService {
                 .build();
     }
 
-
-    /**
-     * Helper method to map Author entity to AuthorSummary DTO
-     */
     private AuthorDTO.AuthorSummary mapToAuthorSummary(Author author) {
         Optional<S3File> latestFileOpt = s3FileRepository.findFirstByEntityIdAndEntityTypeOrderByUploadDateDesc(author.getAuthorId(), S3File.EntityType.AUTHOR);
 

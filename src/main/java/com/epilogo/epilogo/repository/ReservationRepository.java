@@ -9,10 +9,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.time.LocalDate;
 import java.util.List;
 
 @Repository
+@Tag(name = "Reservation Repository", description = "Repositorio para operaciones con reservas de libros")
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
     Page<Reservation> findByUserUserId(Long userId, Pageable pageable);

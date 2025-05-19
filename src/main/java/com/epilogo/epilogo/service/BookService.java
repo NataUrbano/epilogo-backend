@@ -22,12 +22,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Tag(name = "Book Service", description = "Servicio para gestionar el catálogo de libros")
 public class BookService {
 
     private final BookRepository bookRepository;
@@ -38,14 +42,11 @@ public class BookService {
     private final S3Service s3Service;
     private final S3FileRepository s3FileRepository;
 
-    /**
-     * Get a book by ID with all details
-     */
+    @Operation(summary = "Obtener libro por ID", description = "Obtiene un libro con todos sus detalles por su ID")
     public BookDTO.BookResponse getBookById(Long bookId) {
         Book book = bookRepository.findByIdWithDetails(bookId)
                 .orElseThrow(() -> new ResourceNotFoundException("Libro no encontrado con ID: " + bookId));
 
-        // Get current user if authenticated to check if book is reserved by them
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         boolean isReservedByCurrentUser = false;
 
@@ -56,37 +57,29 @@ public class BookService {
 
             if (currentUser.isPresent()) {
                 Long userId = currentUser.get().getUserId();
-                // Check if user has an active reservation for this book
                 isReservedByCurrentUser = reservationRepository.findByUserIdAndStatus(userId, Reservation.ReservationStatus.ACTIVE)
                         .stream()
                         .anyMatch(r -> r.getBook().getBookId().equals(bookId));
             }
         }
 
-        // Get active reservations count
         long activeReservations = reservationRepository.countActiveReservationsByBookId(bookId);
 
         return mapToBookResponse(book, isReservedByCurrentUser, (int) activeReservations);
     }
 
-    /**
-     * Search for books with pagination
-     */
+    @Operation(summary = "Buscar libros", description = "Busca libros con diferentes criterios y paginación")
     public Page<BookDTO.BookResponse> searchBooks(BookDTO.BookSearchRequest request) {
-        // Default pagination values
         int page = request.getPage() != null ? request.getPage() : 0;
         int size = request.getSize() != null ? request.getSize() : 10;
         String sortBy = request.getSortBy() != null ? request.getSortBy() : "title";
         String sortDirection = request.getSortDirection() != null ? request.getSortDirection() : "asc";
 
-        // Create sort
         Sort sort = sortDirection.equalsIgnoreCase("desc") ?
                 Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
 
-        // Create pageable
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        // Search based on criteria
         Page<Book> booksPage;
 
         if (request.getQuery() != null && !request.getQuery().isBlank()) {
@@ -101,7 +94,6 @@ public class BookService {
             booksPage = bookRepository.findAll(pageable);
         }
 
-        // Check if current user has reserved books
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Long currentUserId = null;
 
@@ -115,12 +107,9 @@ public class BookService {
             }
         }
 
-        // Final currentUserId for lambda
         final Long userId = currentUserId;
 
-        // Map to DTO
         return booksPage.map(book -> {
-            // Check if book is reserved by current user
             boolean isReservedByCurrentUser = false;
             if (userId != null) {
                 isReservedByCurrentUser = reservationRepository.findByUserIdAndStatus(userId, Reservation.ReservationStatus.ACTIVE)
@@ -128,27 +117,21 @@ public class BookService {
                         .anyMatch(r -> r.getBook().getBookId().equals(book.getBookId()));
             }
 
-            // Get active reservations count
             long activeReservations = reservationRepository.countActiveReservationsByBookId(book.getBookId());
 
             return mapToBookResponse(book, isReservedByCurrentUser, (int) activeReservations);
         });
     }
 
-    /**
-     * Create a new book
-     */
     @Transactional
+    @Operation(summary = "Crear libro", description = "Crea un nuevo libro en el catálogo")
     public BookDTO.BookResponse createBook(BookDTO.BookCreateRequest request) {
-        // Get author
         Author author = authorRepository.findById(request.getAuthorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Autor no encontrado con ID: " + request.getAuthorId()));
 
-        // Get category
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Categoría no encontrada con ID: " + request.getCategoryId()));
 
-        // Create book
         Book book = Book.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
@@ -160,25 +143,19 @@ public class BookService {
                 .publicationYear(request.getPublicationYear())
                 .build();
 
-        // Set book status based on available amount
         book.updateBookStatus();
 
-        // Save book
         Book savedBook = bookRepository.save(book);
 
         return mapToBookResponse(savedBook, false, 0);
     }
 
-    /**
-     * Update a book
-     */
     @Transactional
+    @Operation(summary = "Actualizar libro", description = "Actualiza los datos de un libro existente")
     public BookDTO.BookResponse updateBook(Long bookId, BookDTO.BookUpdateRequest request) {
-        // Get book
         Book book = bookRepository.findById(bookId)
                 .orElseThrow(() -> new ResourceNotFoundException("Libro no encontrado con ID: " + bookId));
 
-        // Update fields if provided
         if (request.getTitle() != null) {
             book.setTitle(request.getTitle());
         }
@@ -205,12 +182,10 @@ public class BookService {
 
         if (request.getTotalAmount() != null) {
             book.setTotalAmount(request.getTotalAmount());
-            // Actualizar el estado cada vez que cambie totalAmount
             book.updateBookStatus();
         }
 
         if (request.getAvailableAmount() != null) {
-            // Este setter ya actualiza automáticamente el status
             book.setAvailableAmount(request.getAvailableAmount());
         }
 
@@ -218,63 +193,47 @@ public class BookService {
             book.setPublicationYear(request.getPublicationYear());
         }
 
-        // Asegurarse de que el estado esté actualizado antes de guardar
         book.updateBookStatus();
 
-        // Save updated book
         Book updatedBook = bookRepository.save(book);
 
-        // Get active reservations count
         long activeReservations = reservationRepository.countActiveReservationsByBookId(bookId);
 
         return mapToBookResponse(updatedBook, false, (int) activeReservations);
     }
 
-    /**
-     * Delete a book
-     */
     @Transactional
+    @Operation(summary = "Eliminar libro", description = "Elimina un libro si no tiene reservas activas")
     public void deleteBook(Long bookId) {
-        // Check if book exists
         if (!bookRepository.existsById(bookId)) {
             throw new ResourceNotFoundException("Libro no encontrado con ID: " + bookId);
         }
 
-        // Check if there are active reservations
         long activeReservations = reservationRepository.countActiveReservationsByBookId(bookId);
         if (activeReservations > 0) {
             throw new IllegalStateException("No se puede eliminar el libro porque tiene reservas activas");
         }
 
-        // Delete book
         bookRepository.deleteById(bookId);
     }
 
-    /**
-     * Upload book cover image
-     */
     @Transactional
+    @Operation(summary = "Subir portada de libro", description = "Sube una imagen para la portada del libro")
     public BookDTO.BookResponse uploadBookCover(Long bookId, MultipartFile file) {
-        // Get book
         Book book = bookRepository.findById(bookId)
                 .orElseThrow(() -> new ResourceNotFoundException("Libro no encontrado con ID: " + bookId));
 
-        // Upload file to S3
         S3File s3File = s3Service.uploadFile(file, S3File.EntityType.BOOK, bookId);
 
-        // Update book with image URL
         book.setImageUrl(s3File.getS3Url());
         Book updatedBook = bookRepository.save(book);
 
-        // Get active reservations count
         long activeReservations = reservationRepository.countActiveReservationsByBookId(bookId);
 
         return mapToBookResponse(updatedBook, false, (int) activeReservations);
     }
 
-    /**
-     * Get most popular books
-     */
+    @Operation(summary = "Obtener libros más populares", description = "Obtiene los libros más reservados recientemente")
     public List<BookDTO.BookSummary> getMostPopularBooks(int limit) {
         return bookRepository.findMostReservedBooks(limit).stream()
                 .map(book -> BookDTO.BookSummary.builder()
@@ -287,9 +246,6 @@ public class BookService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Helper method to map Book entity to BookResponse DTO
-     */
     private BookDTO.BookResponse mapToBookResponse(Book book, boolean isReservedByCurrentUser, int activeReservations) {
         Optional<S3File> latestFileOpt = s3FileRepository.findFirstByEntityIdAndEntityTypeOrderByUploadDateDesc(book.getBookId(), S3File.EntityType.BOOK);
 

@@ -9,7 +9,10 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
+import io.swagger.v3.oas.annotations.Hidden;
+
 @Configuration
+@Hidden
 public class AwsS3Config {
 
     @Value("${aws.credentials.access-key}")

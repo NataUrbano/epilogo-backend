@@ -16,6 +16,9 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.io.IOException;
 import java.net.URL;
 import java.time.Duration;
@@ -27,15 +30,15 @@ import java.util.UUID;
 @Service
 @Slf4j
 @RequiredArgsConstructor
+@Tag(name = "S3 Service", description = "Servicio para gestión de archivos en Amazon S3")
 public class S3Service {
 
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
     private final S3FileRepository s3FileRepository;
 
-    // Configuración de duración para las URLs pre-firmadas
-    private static final Duration DEFAULT_URL_DURATION = Duration.ofDays(3); // 3 días por defecto
-    private static final Duration REFRESH_THRESHOLD = Duration.ofHours(12);  // Refrescar si quedan menos de 12 horas
+    private static final Duration DEFAULT_URL_DURATION = Duration.ofDays(3);
+    private static final Duration REFRESH_THRESHOLD = Duration.ofHours(12);
 
     @Value("${aws.s3.bucket-name}")
     private String bucketName;
@@ -55,20 +58,15 @@ public class S3Service {
     @Value("${aws.region}")
     private String region;
 
-    /**
-     * Uploads a file to S3 and saves the reference in the database
-     */
+    @Operation(summary = "Subir archivo", description = "Sube un archivo a S3 y guarda la referencia en la base de datos")
     public S3File uploadFile(MultipartFile file, EntityType entityType, Long entityId) {
         try {
-            // Generate a unique file name
             String originalFilename = file.getOriginalFilename();
             String extension = getFileExtension(originalFilename);
             String uniqueName = UUID.randomUUID().toString() + extension;
 
-            // Determine the appropriate S3 path based on entity type
             String s3Key = getS3KeyForEntityType(entityType, uniqueName);
 
-            // Upload to S3
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
                     .key(s3Key)
@@ -77,20 +75,16 @@ public class S3Service {
 
             s3Client.putObject(putObjectRequest, RequestBody.fromBytes(file.getBytes()));
 
-            // Decide si usar URL pública o pre-firmada
             String fileUrl;
             LocalDateTime expirationTime = null;
 
             if (entityType != EntityType.USER && isPublicFile(extension)) {
-                // Para imágenes y archivos públicos, usar URL pública
                 fileUrl = generatePublicUrl(s3Key);
             } else {
-                // Para archivos privados o usuarios, usar URL pre-firmada
                 fileUrl = generatePresignedUrl(s3Key, DEFAULT_URL_DURATION);
                 expirationTime = LocalDateTime.now().plus(DEFAULT_URL_DURATION);
             }
 
-            // Save file reference to database
             S3File s3File = S3File.builder()
                     .entityType(entityType)
                     .entityId(entityId)
@@ -100,7 +94,7 @@ public class S3Service {
                     .fileName(originalFilename)
                     .fileType(file.getContentType())
                     .fileSize(file.getSize())
-                    .isPublic(entityType != EntityType.USER) // Only user files are private by default
+                    .isPublic(entityType != EntityType.USER)
                     .build();
 
             return s3FileRepository.save(s3File);
@@ -113,9 +107,7 @@ public class S3Service {
         }
     }
 
-    /**
-     * Generates a presigned URL for accessing a file in S3 with specified duration
-     */
+    @Operation(summary = "Generar URL pre-firmada", description = "Genera una URL pre-firmada para acceder a un archivo en S3 con duración específica")
     public String generatePresignedUrl(String s3Key, Duration duration) {
         try {
             GetObjectPresignRequest getObjectPresignRequest = GetObjectPresignRequest.builder()
@@ -135,35 +127,27 @@ public class S3Service {
         }
     }
 
-    /**
-     * Generates a presigned URL with default duration
-     */
+    @Operation(summary = "Generar URL pre-firmada con duración predeterminada", description = "Genera una URL pre-firmada para acceder a un archivo en S3")
     public String generatePresignedUrl(String s3Key) {
         return generatePresignedUrl(s3Key, DEFAULT_URL_DURATION);
     }
 
-    /**
-     * Generates a public URL for accessing the file in S3
-     */
+    @Operation(summary = "Generar URL pública", description = "Genera una URL pública para acceder a un archivo en S3")
     public String generatePublicUrl(String s3Key) {
         return String.format("https://%s.s3.%s.amazonaws.com/%s",
                 bucketName, region, s3Key);
     }
 
-    /**
-     * Refreshes presigned URLs for S3 files
-     */
+    @Operation(summary = "Refrescar URL pre-firmada", description = "Refresca la URL pre-firmada de un archivo S3")
     public S3File refreshPresignedUrl(Long fileId) {
         Optional<S3File> optionalS3File = s3FileRepository.findById(fileId);
         if (optionalS3File.isPresent()) {
             S3File s3File = optionalS3File.get();
 
-            // Si es un archivo público y tiene una extensión de imagen, usar URL pública
             if (s3File.isPublic() && isPublicFile(getFileExtension(s3File.getFileName()))) {
                 s3File.setS3Url(generatePublicUrl(s3File.getS3Key()));
-                s3File.setUrlExpirationTime(null); // Las URLs públicas no expiran
+                s3File.setUrlExpirationTime(null);
             } else {
-                // Generar nueva URL pre-firmada con la duración predeterminada
                 s3File.setS3Url(generatePresignedUrl(s3File.getS3Key(), DEFAULT_URL_DURATION));
                 s3File.setUrlExpirationTime(LocalDateTime.now().plus(DEFAULT_URL_DURATION));
             }
@@ -174,35 +158,28 @@ public class S3Service {
         }
     }
 
-    /**
-     * Gets a file by ID, refreshing its URL if needed
-     */
+    @Operation(summary = "Obtener archivo por ID", description = "Obtiene un archivo por su ID, refrescando su URL si es necesario")
     public S3File getFileById(Long fileId) {
         Optional<S3File> optionalS3File = s3FileRepository.findById(fileId);
         if (optionalS3File.isPresent()) {
             S3File s3File = optionalS3File.get();
 
-            // Si es un archivo público y no tiene tiempo de expiración, devolver directamente
             if (s3File.isPublic() && s3File.getUrlExpirationTime() == null) {
                 return s3File;
             }
 
-            // Si la URL está por expirar (o no tiene tiempo de expiración definido), refrescarla
             if (s3File.getUrlExpirationTime() == null ||
                     s3File.getUrlExpirationTime().isBefore(LocalDateTime.now().plus(REFRESH_THRESHOLD))) {
                 log.debug("URL for file ID {} is expired or will expire soon, refreshing", fileId);
                 return refreshPresignedUrl(fileId);
             }
 
-            // La URL sigue siendo válida, devolver el archivo directamente
             return s3File;
         }
         throw new S3FileException("File not found with ID: " + fileId);
     }
 
-    /**
-     * Deletes a file from S3 and removes the reference from the database
-     */
+    @Operation(summary = "Eliminar archivo", description = "Elimina un archivo de S3 y elimina la referencia de la base de datos")
     public void deleteFile(Long fileId) {
         Optional<S3File> optionalS3File = s3FileRepository.findById(fileId);
         if (optionalS3File.isPresent()) {
@@ -224,17 +201,13 @@ public class S3Service {
         }
     }
 
-    /**
-     * Gets all files associated with an entity
-     */
+    @Operation(summary = "Obtener archivos para entidad", description = "Obtiene todos los archivos asociados a una entidad")
     public List<S3File> getFilesForEntity(EntityType entityType, Long entityId) {
         List<S3File> files = s3FileRepository.findByEntityTypeAndEntityId(entityType, entityId);
 
-        // Verificar y refrescar URLs expiradas
         for (int i = 0; i < files.size(); i++) {
             S3File file = files.get(i);
 
-            // Si no es una URL pública y está por expirar, refrescarla
             if (file.getUrlExpirationTime() != null &&
                     file.getUrlExpirationTime().isBefore(LocalDateTime.now().plus(REFRESH_THRESHOLD))) {
                 files.set(i, refreshPresignedUrl(file.getFileId()));
@@ -244,31 +217,21 @@ public class S3Service {
         return files;
     }
 
-    /**
-     * Helper method to get the file extension from a filename
-     */
     private String getFileExtension(String filename) {
         if (filename == null) {
             return "";
         }
         int lastIndexOf = filename.lastIndexOf(".");
         if (lastIndexOf == -1) {
-            return ""; // No extension
+            return "";
         }
         return filename.substring(lastIndexOf).toLowerCase();
     }
 
-    /**
-     * Helper method to determine if a file should be publicly accessible based on extension
-     */
     boolean isPublicFile(String extension) {
-        // Considerar imágenes y otros archivos públicos comunes
         return extension.matches("\\.(jpg|jpeg|png|gif|svg|webp|ico)$");
     }
 
-    /**
-     * Helper method to determine the appropriate S3 key based on entity type
-     */
     private String getS3KeyForEntityType(EntityType entityType, String uniqueFileName) {
         switch (entityType) {
             case BOOK:

@@ -6,10 +6,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.util.List;
 import java.util.Optional;
 
 @Repository
+@Tag(name = "Category Repository", description = "Repositorio para operaciones con categorías de libros")
 public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     Optional<Category> findByCategoryNameIgnoreCase(String categoryName);

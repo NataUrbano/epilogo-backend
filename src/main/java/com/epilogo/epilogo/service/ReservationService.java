@@ -67,7 +67,7 @@ public class ReservationService {
         Reservation savedReservation = reservationRepository.save(reservation);
 
         // TRIGGER LOGIC: Si la nueva reserva es ACTIVE (aunque normalmente será PENDING)
-        if (savedReservation.getStatus() == Reservation.ReservationStatus.ACTIVE) {
+        if (savedReservation.getStatus() == Reservation.ReservationStatus.PENDING) {
             decreaseBookAvailability(book);
         }
 
@@ -253,7 +253,6 @@ public class ReservationService {
     private void decreaseBookAvailability(Book book) {
         if (book.getAvailableAmount() > 0) {
             book.setAvailableAmount(book.getAvailableAmount() - 1);
-            // El método setAvailableAmount automáticamente actualiza el status
             bookRepository.save(book);
         }
     }
@@ -264,7 +263,6 @@ public class ReservationService {
     private void increaseBookAvailability(Book book) {
         if (book.getAvailableAmount() < book.getTotalAmount()) {
             book.setAvailableAmount(book.getAvailableAmount() + 1);
-            // El método setAvailableAmount automáticamente actualiza el status
             bookRepository.save(book);
         }
     }

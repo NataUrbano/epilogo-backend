@@ -10,6 +10,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.swagger.v3.oas.annotations.Hidden;
+
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -18,6 +20,7 @@ import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
+@Hidden
 public class UserInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
@@ -27,17 +30,14 @@ public class UserInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        // Verificar si existen roles y crearlos si no existen
         createRolesIfNotExist();
 
-        // Verificar si hay usuarios en la base de datos
         if (userRepository.count() == 0) {
             createDefaultUsers();
         }
     }
 
     private void createRolesIfNotExist() {
-        // Verificar y crear roles si no existen
         Arrays.stream(Role.RoleName.values())
                 .forEach(roleName -> {
                     if (!roleRepository.existsByRoleName(roleName)) {
@@ -50,7 +50,6 @@ public class UserInitializer implements CommandLineRunner {
     }
 
     private void createDefaultUsers() {
-        // Obtener roles
         Role adminRole = roleRepository.findByRoleName(Role.RoleName.ROLE_ADMIN)
                 .orElseThrow(() -> new RuntimeException("Rol ADMIN no encontrado"));
 
@@ -60,14 +59,12 @@ public class UserInitializer implements CommandLineRunner {
         Role userRole = roleRepository.findByRoleName(Role.RoleName.ROLE_USER)
                 .orElseThrow(() -> new RuntimeException("Rol USER no encontrado"));
 
-        // Crear usuarios predeterminados
         List<User> defaultUsers = Arrays.asList(
                 createUser("Admin", "admin@epilogo.com", "Admin123*", Set.of(adminRole, librarianRole, userRole)),
                 createUser("Natalia Admin", "natalia@admin.com", "Admin123*", Set.of(adminRole, userRole)),
                 createUser("Natalia Librarian", "natalia@librarian.com", "Admin123*", Set.of(librarianRole, userRole))
         );
 
-        // Guardar usuarios
         userRepository.saveAll(defaultUsers);
 
         System.out.println("Usuarios predeterminados creados con éxito.");

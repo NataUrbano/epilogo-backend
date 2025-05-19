@@ -8,10 +8,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.util.List;
 import java.util.Optional;
 
 @Repository
+@Tag(name = "Author Repository", description = "Repositorio para operaciones con autores")
 public interface AuthorRepository extends JpaRepository<Author, Long> {
 
     Optional<Author> findByAuthorNameIgnoreCase(String authorName);

@@ -1,5 +1,6 @@
 package com.epilogo.epilogo.model;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
@@ -21,27 +22,33 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @Table(name = "users")
+@Schema(name = "User", description = "Entidad que representa un usuario del sistema")
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
+    @Schema(description = "Identificador único del usuario", example = "123", accessMode = Schema.AccessMode.READ_ONLY)
     private Long userId;
 
     @Column(name = "user_name", nullable = false, length = 150)
     @Size(min = 3, max = 150)
+    @Schema(description = "Nombre de usuario", example = "juanperez", required = true)
     private String userName;
 
     @Column(name = "email", nullable = false, unique = true, length = 100)
     @Email
+    @Schema(description = "Correo electrónico del usuario", example = "usuario@correo.com", required = true, format = "email")
     private String email;
 
     @Column(name = "password", nullable = false)
     @JsonIgnore
+    @Schema(description = "Contraseña del usuario (no expuesta en la documentación)", accessMode = Schema.AccessMode.WRITE_ONLY)
     private String password;
 
     @Column(name = "register_date")
     @CreationTimestamp
+    @Schema(description = "Fecha de registro del usuario", example = "2024-05-18T16:50:00", accessMode = Schema.AccessMode.READ_ONLY, format = "date-time")
     private LocalDateTime registerDate;
 
     @ManyToMany(fetch = FetchType.EAGER)
@@ -50,16 +57,20 @@ public class User {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
+    @Schema(description = "Roles asignados al usuario")
     private Set<Role> roles = new HashSet<>();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference("user-reservations")
+    @Schema(description = "Reservas realizadas por el usuario")
     private List<Reservation> reservations = new ArrayList<>();
 
     @Transient
+    @Schema(description = "URL de la imagen del usuario", example = "https://example.com/images/user123.png", accessMode = Schema.AccessMode.READ_ONLY)
     private String imageUrl;
 
     @Column(name = "is_active", nullable = false)
+    @Schema(description = "Indica si el usuario está activo", example = "true")
     private Boolean isActive = true;
 
     public Boolean getActive() {
@@ -77,7 +88,6 @@ public class User {
         this.userName = this.userName != null ? this.userName.trim() : null;
     }
 
-    // Para evitar problemas de recursión infinita al serializar a JSON
     @Override
     public String toString() {
         return "User{" +

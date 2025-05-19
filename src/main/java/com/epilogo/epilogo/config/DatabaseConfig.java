@@ -7,10 +7,13 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
+import io.swagger.v3.oas.annotations.Hidden;
+
 import javax.sql.DataSource;
 
 @Configuration
 @Profile("render")
+@Hidden
 public class DatabaseConfig {
 
     @Value("${DB_HOST:localhost}")

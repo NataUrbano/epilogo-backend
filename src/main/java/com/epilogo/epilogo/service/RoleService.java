@@ -7,37 +7,35 @@ import com.epilogo.epilogo.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Tag(name = "Role Service", description = "Servicio para gestión de roles")
 public class RoleService {
 
     private final RoleRepository roleRepository;
 
-    /**
-     * Obtener todos los roles disponibles
-     */
+    @Operation(summary = "Obtener todos los roles", description = "Devuelve la lista de todos los roles disponibles en el sistema")
     public List<RoleDTO.RoleResponse> getAllRoles() {
         return roleRepository.findAll().stream()
                 .map(this::mapToRoleResponse)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Obtener un rol por su ID
-     */
+    @Operation(summary = "Obtener rol por ID", description = "Busca un rol por su ID único")
     public RoleDTO.RoleResponse getRoleById(Long roleId) {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Rol no encontrado con ID: " + roleId));
         return mapToRoleResponse(role);
     }
 
-    /**
-     * Obtener un rol por su nombre
-     */
+    @Operation(summary = "Obtener rol por nombre", description = "Busca un rol por su nombre")
     public RoleDTO.RoleResponse getRoleByName(String roleName) {
         try {
             Role.RoleName enumRoleName = Role.RoleName.valueOf(roleName.toUpperCase());
@@ -49,18 +47,13 @@ public class RoleService {
         }
     }
 
-    /**
-     * Obtener todos los nombres de roles como enum
-     */
+    @Operation(summary = "Obtener nombres de roles", description = "Devuelve la lista de todos los nombres de roles disponibles")
     public List<String> getAllRoleNames() {
         return Arrays.stream(Role.RoleName.values())
                 .map(Enum::name)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Metodo interno para mapear entidad Role a RoleResponse DTO
-     */
     private RoleDTO.RoleResponse mapToRoleResponse(Role role) {
         return RoleDTO.RoleResponse.builder()
                 .roleId(role.getRoleId())

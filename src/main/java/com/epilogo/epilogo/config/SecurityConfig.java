@@ -24,6 +24,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import io.swagger.v3.oas.annotations.Hidden;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -32,6 +34,7 @@ import java.util.List;
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
+@Hidden
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
@@ -43,30 +46,22 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
-                        // Swagger/OpenAPI endpoints
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        // Admin-only endpoints
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/api-docs/**", "/webjars/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        // Librarian endpoints
                         .requestMatchers("/api/librarian/**").hasAnyRole("ADMIN", "LIBRARIAN")
-                        // Categories endpoint GET
                         .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
-                        // Books endpoint GET
                         .requestMatchers(HttpMethod.GET, "/api/books/**").permitAll()
-                        // User endpoints
                         .anyRequest().authenticated()
                 )
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
+
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -74,7 +69,7 @@ public class SecurityConfig {
         configuration.setAllowedOriginPatterns(Arrays.asList(
                 "http://localhost:4200",
                 "https://epilogo-frontend.vercel.app",
-                "https://*.vercel.app"  // Esto permitirá todos los subdominios de vercel.app
+                "https://*.vercel.app"
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));

@@ -11,10 +11,13 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.swagger.v3.oas.annotations.Hidden;
+
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Hidden
 public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserRepository userRepository;
@@ -22,28 +25,24 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        // Find user by email
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado con email: " + email));
 
-        // Verificar si el usuario está activo
         if (!user.getActive()) {
             throw new DisabledException("El usuario está desactivado");
         }
 
-        // Map roles to Spring Security authorities
         var authorities = user.getRoles().stream()
                 .map(role -> new SimpleGrantedAuthority(role.getRoleName().name()))
                 .collect(Collectors.toList());
 
-        // Return Spring Security UserDetails object
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
                 user.getPassword(),
-                user.getActive(),  // enabled flag
-                true,         // accountNonExpired
-                true,         // credentialsNonExpired
-                true,         // accountNonLocked
+                user.getActive(),
+                true,
+                true,
+                true,
                 authorities
         );
     }

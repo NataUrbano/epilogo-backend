@@ -1,5 +1,6 @@
 package com.epilogo.epilogo.security;
 
+import com.epilogo.epilogo.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,14 +16,17 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import io.swagger.v3.oas.annotations.Hidden;
+
 import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
+@Hidden
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final com.epilogo.epilogo.security.JwtService jwtService;
+    private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
 
     @Override
@@ -35,44 +39,41 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt;
         final String userEmail;
 
-        // Check if the Authorization header exists and starts with "Bearer "
+        String path = request.getRequestURI();
+
+        if (path.contains("/swagger-ui") || path.contains("/v3/api-docs") || path.contains("/webjars")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Extract the JWT token (removing "Bearer " prefix)
         jwt = authHeader.substring(7);
         try {
-            // Extract username (email) from the token
             userEmail = jwtService.extractUsername(jwt);
 
-            // If we have a username and no authentication exists yet
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                // Load user details
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-                // Validate the token
                 if (jwtService.isTokenValid(jwt, userDetails)) {
-                    // Create authentication token
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,
                             userDetails.getAuthorities()
                     );
 
-                    // Set details
                     authToken.setDetails(
                             new WebAuthenticationDetailsSource().buildDetails(request)
                     );
 
-                    // Update security context
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
         } catch (Exception e) {
             log.error("Error processing JWT token: {}", e.getMessage());
-            // Continue the filter chain even if there's a JWT error
         }
 
         filterChain.doFilter(request, response);

@@ -18,12 +18,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Tag(name = "User Service", description = "Servicio para gestionar usuarios")
 public class UserService {
 
     private final UserRepository userRepository;
@@ -32,9 +36,7 @@ public class UserService {
     private final S3Service s3Service;
     private final S3FileRepository s3FileRepository;
 
-    /**
-     * Get current authenticated user
-     */
+    @Operation(summary = "Obtener usuario actual", description = "Obtiene los datos del usuario autenticado actual")
     public UserDTO.UserResponse getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
@@ -45,9 +47,7 @@ public class UserService {
         return mapToUserResponse(user);
     }
 
-    /**
-     * Get user by ID
-     */
+    @Operation(summary = "Obtener usuario por ID", description = "Obtiene los datos de un usuario por su ID")
     public UserDTO.UserResponse getUserById(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con ID: " + userId));
@@ -55,36 +55,28 @@ public class UserService {
         return mapToUserResponse(user);
     }
 
-    /**
-     * Update user profile
-     */
     @Transactional
+    @Operation(summary = "Actualizar usuario", description = "Actualiza los datos de un usuario existente")
     public UserDTO.UserResponse updateUser(Long userId, UserDTO.UserUpdateRequest request) {
-        // Check if user is authorized to update this profile
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
 
         User currentUser = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
-        // Only allow users to update their own profile unless they're an admin
         if (!currentUser.getUserId().equals(userId) &&
                 !currentUser.getRoles().stream().anyMatch(role -> role.getRoleName().name().equals("ROLE_ADMIN"))) {
             throw new AccessDeniedException("No está autorizado para modificar este perfil");
         }
 
-        // Get user to update
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con ID: " + userId));
 
-        // Update user name if provided
         if (request.getUserName() != null && !request.getUserName().isBlank()) {
             user.setUserName(request.getUserName());
         }
 
-        // Update password if provided
         if (request.getNewPassword() != null && !request.getNewPassword().isBlank()) {
-            // Verify current password if not admin
             if (!currentUser.getRoles().stream().anyMatch(role -> role.getRoleName().name().equals("ROLE_ADMIN"))) {
                 if (request.getCurrentPassword() == null || !passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
                     throw new AccessDeniedException("Contraseña actual incorrecta");
@@ -94,67 +86,51 @@ public class UserService {
             user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         }
 
-        // Save updated user
         User updatedUser = userRepository.save(user);
 
         return mapToUserResponse(updatedUser);
     }
 
-    /**
-     * Upload user profile image
-     */
     @Transactional
+    @Operation(summary = "Subir imagen de perfil", description = "Sube una imagen de perfil para un usuario")
     public UserDTO.UserResponse uploadProfileImage(Long userId, MultipartFile file) {
-        // Check if user is authorized to update this profile
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
 
         User currentUser = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
-        // Only allow users to update their own profile unless they're an admin
         if (!currentUser.getUserId().equals(userId) &&
                 !currentUser.getRoles().stream().anyMatch(role -> role.getRoleName().name().equals("ROLE_ADMIN"))) {
             throw new AccessDeniedException("No está autorizado para modificar este perfil");
         }
 
-        // Get user to update
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con ID: " + userId));
 
-        // Upload file to S3
         S3File s3File = s3Service.uploadFile(file, S3File.EntityType.USER, user.getUserId());
 
-        // Return updated user
         user.setImageUrl(s3File.getS3Url());
-        System.out.println(user.getImageUrl());
         User updatedUser = userRepository.save(user);
 
         return mapToUserResponse(updatedUser);
     }
 
-    /**
-     * Get all users (admin only)
-     */
+    @Operation(summary = "Obtener todos los usuarios", description = "Obtiene la lista de todos los usuarios (solo para administradores)")
     public List<UserDTO.UserResponse> getAllUsers() {
         return userRepository.findAllWithRoles().stream()
                 .map(this::mapToUserResponse)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Actualizar los roles de un usuario (solo para administradores)
-     */
     @Transactional
+    @Operation(summary = "Actualizar roles de usuario", description = "Actualiza los roles asignados a un usuario (solo para administradores)")
     public UserDTO.UserResponse updateUserRoles(Long userId, List<String> roleNames) {
-        // Verificar si el usuario existe
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con ID: " + userId));
 
-        // Limpiar roles actuales
         user.getRoles().clear();
 
-        // Añadir nuevos roles
         for (String roleName : roleNames) {
             try {
                 Role.RoleName enumRoleName = Role.RoleName.valueOf(roleName);
@@ -166,47 +142,34 @@ public class UserService {
             }
         }
 
-        // Guardar cambios
         User updatedUser = userRepository.save(user);
 
         return mapToUserResponse(updatedUser);
     }
 
-    /**
-     * Actualizar el estado de un usuario (activar/desactivar)
-     */
     @Transactional
+    @Operation(summary = "Actualizar estado de usuario", description = "Actualiza el estado de activación de un usuario (solo para administradores)")
     public UserDTO.UserResponse updateUserStatus(Long userId, Boolean isActive) {
-        // Verificar si el usuario existe
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con ID: " + userId));
 
-        // Actualizar estado
         user.setActive(isActive);
 
-        // Guardar cambios
         User updatedUser = userRepository.save(user);
 
         return mapToUserResponse(updatedUser);
     }
 
-    /**
-     * Eliminar un usuario
-     */
     @Transactional
+    @Operation(summary = "Eliminar usuario", description = "Elimina un usuario por su ID (solo para administradores)")
     public void deleteUser(Long userId) {
-        // Verificar si el usuario existe
         if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("Usuario no encontrado con ID: " + userId);
         }
 
-        // Eliminar usuario
         userRepository.deleteById(userId);
     }
 
-    /**
-     * Helper method to map User entity to UserResponse DTO
-     */
     private UserDTO.UserResponse mapToUserResponse(User user) {
         Optional<S3File> latestFileOpt = s3FileRepository.findFirstByEntityIdAndEntityTypeOrderByUploadDateDesc(user.getUserId(), S3File.EntityType.USER);
 
@@ -224,5 +187,4 @@ public class UserService {
                         .collect(Collectors.toSet()))
                 .build();
     }
-
 }

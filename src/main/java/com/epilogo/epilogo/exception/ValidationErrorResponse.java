@@ -7,7 +7,7 @@ import java.util.Map;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class ValidationErrorResponse extends ErrorResponse {
+public class ValidationErrorResponse extends com.epilogo.epilogo.exception.ErrorResponse {
     private Map<String, String> fieldErrors;
 
     public ValidationErrorResponse(int status, String error, String message, Map<String, String> fieldErrors) {

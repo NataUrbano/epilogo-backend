@@ -1,4 +1,4 @@
-package com.epilogo.epilogo.security;
+package com.epilogo.epilogo.service;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
@@ -9,6 +9,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import io.swagger.v3.oas.annotations.Hidden;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
@@ -17,6 +21,7 @@ import java.util.function.Function;
 
 @Service
 @Slf4j
+@Tag(name = "JWT Service", description = "Servicio para operaciones relacionadas con tokens JWT")
 public class JwtService {
 
     @Value("${jwt.secret}")
@@ -31,45 +36,33 @@ public class JwtService {
     @Value("${jwt.issuer}")
     private String jwtIssuer;
 
-    /**
-     * Extracts username from JWT token
-     */
+    @Operation(summary = "Extraer nombre de usuario", description = "Extrae el nombre de usuario del token JWT")
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
-    /**
-     * Extract a specific claim from token
-     */
+    @Operation(summary = "Extraer reclamación", description = "Extrae una reclamación específica del token JWT")
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
     }
 
-    /**
-     * Generate a token for a user
-     */
+    @Operation(summary = "Generar token", description = "Genera un token JWT para un usuario")
     public String generateToken(UserDetails userDetails) {
         return generateToken(new HashMap<>(), userDetails);
     }
 
-    /**
-     * Generate a token with extra claims
-     */
+    @Operation(summary = "Generar token con reclamaciones", description = "Genera un token JWT con reclamaciones adicionales")
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         return buildToken(extraClaims, userDetails, jwtExpiration);
     }
 
-    /**
-     * Generate a refresh token
-     */
+    @Operation(summary = "Generar token de refresco", description = "Genera un token de refresco JWT")
     public String generateRefreshToken(UserDetails userDetails) {
         return buildToken(new HashMap<>(), userDetails, refreshExpiration);
     }
 
-    /**
-     * Build a JWT token
-     */
+    @Hidden
     private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails, long expiration) {
         return Jwts.builder()
                 .setClaims(extraClaims)
@@ -81,31 +74,23 @@ public class JwtService {
                 .compact();
     }
 
-    /**
-     * Validate a token
-     */
+    @Operation(summary = "Validar token", description = "Valida si un token JWT es válido para un usuario específico")
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
         return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
     }
 
-    /**
-     * Check if a token is expired
-     */
+    @Hidden
     private boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
 
-    /**
-     * Extract expiration date from token
-     */
+    @Hidden
     private Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
 
-    /**
-     * Extract all claims from token
-     */
+    @Hidden
     private Claims extractAllClaims(String token) {
         try {
             return Jwts.parser()
@@ -131,9 +116,7 @@ public class JwtService {
         }
     }
 
-    /**
-     * Get key used for signing JWT
-     */
+    @Hidden
     private Key getSigningKey() {
         byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
         return Keys.hmacShaKeyFor(keyBytes);

@@ -8,7 +8,10 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 import java.util.List;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 @Repository
+@Tag(name = "User Repository", description = "Repositorio para operaciones de base de datos relacionadas con usuarios")
 public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);

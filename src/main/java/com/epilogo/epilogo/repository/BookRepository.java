@@ -9,10 +9,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.util.List;
 import java.util.Optional;
 
 @Repository
+@Tag(name = "Book Repository", description = "Repositorio para operaciones con libros")
 public interface BookRepository extends JpaRepository<Book, Long> {
 
     @Query("SELECT b FROM Book b LEFT JOIN FETCH b.author LEFT JOIN FETCH b.category WHERE b.bookId = :id")

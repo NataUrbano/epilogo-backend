@@ -16,14 +16,13 @@ public class RoleInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // Crear roles si no existen
         for (Role.RoleName roleName : Role.RoleName.values()) {
             if (!roleRepository.existsByRoleName(roleName)) {
                 Role role = Role.builder()
                         .roleName(roleName)
                         .build();
                 roleRepository.save(role);
-                System.out.println("Rol creado: " + roleName); // Para debug
+                System.out.println("Rol creado: " + roleName);
             }
         }
     }
