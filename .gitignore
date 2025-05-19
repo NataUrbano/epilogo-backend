@@ -7,9 +7,6 @@ target/
 # Ignorar archivo de variables de entorno
 .env
 
-# Ignorar archivo de configuración con claves (ajusta la ruta si es necesario)
-src/main/resources/application.properties
-
 
 ### STS ###
 .apt_generated

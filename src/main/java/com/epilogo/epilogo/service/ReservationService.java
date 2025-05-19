@@ -6,9 +6,11 @@ import com.epilogo.epilogo.dto.UserDTO;
 import com.epilogo.epilogo.exception.ResourceNotFoundException;
 import com.epilogo.epilogo.model.Book;
 import com.epilogo.epilogo.model.Reservation;
+import com.epilogo.epilogo.model.S3File;
 import com.epilogo.epilogo.model.User;
 import com.epilogo.epilogo.repository.BookRepository;
 import com.epilogo.epilogo.repository.ReservationRepository;
+import com.epilogo.epilogo.repository.S3FileRepository;
 import com.epilogo.epilogo.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -23,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,6 +35,7 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final UserRepository userRepository;
     private final BookRepository bookRepository;
+    private final S3FileRepository s3FileRepository;
 
     /**
      * Create a new reservation
@@ -302,17 +306,24 @@ public class ReservationService {
      * Helper method to map Reservation entity to ReservationResponse DTO
      */
     private ReservationDTO.ReservationResponse mapToReservationResponse(Reservation reservation) {
+
+        Optional<S3File> latestFileOptUser = s3FileRepository.findFirstByEntityIdAndEntityTypeOrderByUploadDateDesc(reservation.getUser().getUserId(), S3File.EntityType.USER);
+        Optional<S3File> latestFileOptBook = s3FileRepository.findFirstByEntityIdAndEntityTypeOrderByUploadDateDesc(reservation.getBook().getBookId(), S3File.EntityType.BOOK);
+
+        String imageUrlUser = latestFileOptUser.map(S3File::getS3Url).orElse(null);
+        String imageUrlBook = latestFileOptBook.map(S3File::getS3Url).orElse(null);
+
         return ReservationDTO.ReservationResponse.builder()
                 .reservationId(reservation.getReservationId())
                 .user(UserDTO.UserSummary.builder()
                         .userId(reservation.getUser().getUserId())
                         .userName(reservation.getUser().getUserName())
-                        .imageUrl(reservation.getUser().getImageUrl())
+                        .imageUrl(imageUrlUser)
                         .build())
                 .book(BookDTO.BookSummary.builder()
                         .bookId(reservation.getBook().getBookId())
                         .title(reservation.getBook().getTitle())
-                        .imageUrl(reservation.getBook().getImageUrl())
+                        .imageUrl(imageUrlBook)
                         .bookStatus(reservation.getBook().getBookStatus())
                         .authorName(reservation.getBook().getAuthor().getAuthorName())
                         .build())
