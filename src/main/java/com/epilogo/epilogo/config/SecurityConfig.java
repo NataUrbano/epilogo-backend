@@ -53,6 +53,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/librarian/**").hasAnyRole("ADMIN", "LIBRARIAN")
                         .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/books/**").permitAll()
+                        .requestMatchers("/api/reports/**").hasAnyRole("ADMIN", "LIBRARIAN")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
